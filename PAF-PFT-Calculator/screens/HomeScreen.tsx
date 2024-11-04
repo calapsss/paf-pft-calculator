@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -48,38 +48,53 @@ const scoringRanges = {
   },
 };
 
-const HomeScreen = () => {
+const HomeScreen = ({ navigation }) => {
   const [pushUps, setPushUps] = useState(0);
   const [sitUps, setSitUps] = useState(0);
   const [runMinutes, setRunMinutes] = useState(0);
   const [runSeconds, setRunSeconds] = useState(0);
   const [score, setScore] = useState<number | null>(null);
+  
+  const [age, setAge] = useState<string>('');
+  const [gender, setGender] = useState<string>('');
 
-  // Key to store sessions in AsyncStorage
-  const STORAGE_KEY = '@paf_pft_sessions';
+  // Load age and gender from AsyncStorage
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const savedAge = await AsyncStorage.getItem('@paf_pft_age');
+        const savedGender = await AsyncStorage.getItem('@paf_pft_gender');
+        if (savedAge) setAge(savedAge);
+        if (savedGender) setGender(savedGender);
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   const calculateScore = () => {
+    if (!age || !gender) {
+      Alert.alert('Settings Required', 'Please set your age and gender in the settings.');
+      navigation.navigate('Settings'); // Navigate to Settings Screen
+      return;
+    }
+
     const runTimeInSeconds = runMinutes * 60 + runSeconds;
+    const ageGroup = '21'; // You may want to implement actual age group logic
 
-    // Example user data (these would ideally come from user input or settings)
-    const ageGroup = '21'; // Replace with selected age group
-    const gender = 'male'; // Replace with selected gender
-
-    // Calculate scores for each event
     const pushUpScore = calculateEventScore(pushUps, scoringRanges.pushUps[gender][ageGroup]);
     const sitUpScore = calculateEventScore(sitUps, scoringRanges.sitUps[gender][ageGroup]);
     const runScore = calculateEventScore(runTimeInSeconds, scoringRanges.run[gender][ageGroup], true);
 
-    // Calculate the average score across all events
     const totalScore = (pushUpScore + sitUpScore + runScore) / 3;
     setScore(totalScore);
   };
 
-  // Helper function for interpolation
   const calculateEventScore = (value: number, range: { min: number; max: number }, isRun: boolean = false): number => {
     const { min, max } = range;
 
-    // For the run event, lower times are better; flip logic accordingly
     if (isRun) {
       if (value >= min) return 65;
       if (value <= max) return 100;
@@ -91,7 +106,6 @@ const HomeScreen = () => {
     }
   };
 
-  // Save session to AsyncStorage
   const saveSession = async () => {
     if (score === null) {
       Alert.alert('Calculate First', 'Please calculate your score before saving.');
@@ -99,11 +113,8 @@ const HomeScreen = () => {
     }
 
     try {
-      // Retrieve existing sessions
-      const existingSessions = await AsyncStorage.getItem(STORAGE_KEY);
+      const existingSessions = await AsyncStorage.getItem('@paf_pft_sessions');
       const sessions = existingSessions ? JSON.parse(existingSessions) : [];
-
-      // Create session data
       const sessionData = {
         date: new Date().toISOString(),
         pushUpScore: pushUps,
@@ -112,11 +123,8 @@ const HomeScreen = () => {
         totalScore: score,
       };
 
-      // Add the new session to the list
       sessions.push(sessionData);
-
-      // Save updated sessions back to AsyncStorage
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      await AsyncStorage.setItem('@paf_pft_sessions', JSON.stringify(sessions));
       Alert.alert('Success', 'Session saved successfully!');
     } catch (error) {
       console.error('Failed to save session:', error);
@@ -130,74 +138,75 @@ const HomeScreen = () => {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={styles.header}>PAF PFT Calculator</Text>
+        <View >
+          <Text style={styles.header}>PAF PFT Calculator</Text>
 
-        <Text>Push-Ups (reps):</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={pushUps.toString()}
-          onChangeText={(value) => setPushUps(Number(value) || 0)}
-          placeholder="Enter number of push-ups"
-        />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Push-Ups (reps):</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="numeric"
+              value={pushUps.toString()}
+              onChangeText={(value) => setPushUps(Number(value) || 0)}
+              placeholder="Enter number of push-ups"
+            />
+          </View>
 
-        <Text>Sit-Ups (reps):</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={sitUps.toString()}
-          onChangeText={(value) => setSitUps(Number(value) || 0)}
-          placeholder="Enter number of sit-ups"
-        />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Sit-Ups (reps):</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="numeric"
+              value={sitUps.toString()}
+              onChangeText={(value) => setSitUps(Number(value) || 0)}
+              placeholder="Enter number of sit-ups"
+            />
+          </View>
 
-        <Text>3.2 km Run - Time:</Text>
-        <View style={styles.timeRow}>
-          <View style={styles.timeInputContainer}>
-            <Text>Minutes:</Text>
-            <View style={styles.inputRow}>
-              <TouchableOpacity onPress={() => setRunMinutes(Math.max(0, runMinutes - 1))} style={styles.button}>
-                <Text style={styles.buttonText}>-</Text>
-              </TouchableOpacity>
+          <Text style={styles.label}>3.2 km Run - Time:</Text>
+          <View style={styles.timeRow}>
+            <View style={styles.timeInputContainer}>
+              <Text>Minutes:</Text>
               <TextInput
                 style={styles.timeInput}
                 keyboardType="numeric"
                 value={runMinutes.toString()}
                 onChangeText={(value) => setRunMinutes(Number(value) || 0)}
               />
-              <TouchableOpacity onPress={() => setRunMinutes(runMinutes + 1)} style={styles.button}>
-                <Text style={styles.buttonText}>+</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-          <View style={styles.timeInputContainer}>
-            <Text>Seconds:</Text>
-            <View style={styles.inputRow}>
-              <TouchableOpacity onPress={() => setRunSeconds(Math.max(0, runSeconds - 1))} style={styles.button}>
-                <Text style={styles.buttonText}>-</Text>
-              </TouchableOpacity>
+            <View style={styles.timeInputContainer}>
+              <Text>Seconds:</Text>
               <TextInput
                 style={styles.timeInput}
                 keyboardType="numeric"
                 value={runSeconds.toString()}
                 onChangeText={(value) => setRunSeconds(Number(value) || 0)}
               />
-              <TouchableOpacity onPress={() => setRunSeconds(runSeconds + 1)} style={styles.button}>
-                <Text style={styles.buttonText}>+</Text>
-              </TouchableOpacity>
             </View>
           </View>
-        </View>
 
-        <Button title="Calculate Score" onPress={calculateScore} />
-        
-        {score !== null && (
-            <>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.button} onPress={calculateScore}>
+              <Text style={styles.buttonText}>Calculate Score</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={saveSession}>
+              <Text style={styles.buttonText}>Save Session</Text>
+            </TouchableOpacity>
+          </View>
+
+          {score !== null && (
             <Text style={styles.result}>Your Total Score: {score.toFixed(2)}%</Text>
-            <Button title="Save Session" onPress={saveSession} />
-            </>
-        )}
+          )}
 
-        
+          <View style={styles.navigationButtons}>
+            <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Progress')}>
+              <Text style={styles.navButtonText}>View Progress</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Settings')}>
+              <Text style={styles.navButtonText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
@@ -207,60 +216,113 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    justifyContent: 'center',
+    backgroundColor: '#ffffff', // White background for the whole screen
+  },
+  card: {
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#ffffff', // White background for the card
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5, // For Android shadow
+    alignItems: 'center', // Center content
   },
   header: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: '#333', // Darker text color
+    marginTop: 36
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  label: {
+    fontSize: 16,
+    marginTop: 15,
+    color: '#141414', // Text color for labels
   },
-  button: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ccc',
-    borderRadius: 5,
-    marginHorizontal: 5,
-  },
-  buttonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  inputContainer: {
+    width: '100%',
+    marginVertical: 10,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginVertical: 10,
-    borderRadius: 5,
+    borderColor: '#DBE1E6',
+    padding: 15,
+    borderRadius: 10,
     textAlign: 'center',
+    backgroundColor: '#ffffff', // White background for input
+    fontSize: 16,
+    color: '#141414', // Darker text color
   },
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 10,
+    width: '100%',
   },
   timeInputContainer: {
     flex: 1,
-    alignItems: 'center',
+    marginHorizontal: 5,
   },
   timeInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    width: 60,
+    borderColor: '#DBE1E6',
+    padding: 15,
+    borderRadius: 10,
     textAlign: 'center',
+    backgroundColor: '#ffffff', // White background for input
+    fontSize: 16,
+    color: '#141414', // Darker text color
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  button: {
+    flex: 1,
+    backgroundColor: '#007BFF',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   result: {
     marginTop: 20,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: '#333',
+  },
+  navigationButtons: {
+    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    
+  },
+  navButton: {
+    backgroundColor: '#F0F2F5',
+    borderRadius: 10,
+    padding: 15,
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  navButtonText: {
+    color: '#141414',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
