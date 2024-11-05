@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LineChart } from 'react-native-chart-kit';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const STORAGE_KEY = '@paf_pft_sessions';
 
-const ProgressScreen = () => {
+const ProgressScreen = ({ navigation }) => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [data, setData] = useState({
     labels: [],
@@ -133,6 +134,24 @@ const ProgressScreen = () => {
           renderItem={renderSession}
         />
       )}
+    
+
+    {/* Bottom Navigation Bar */}
+    <View style={styles.bottomNavBar}>
+        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Home')}>
+        <Ionicons name="home-outline" size={24} color="#333" />
+        <Text style={styles.navButtonText}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Progress')}>
+        <Ionicons name="bar-chart-outline" size={24} color="#007BFF" />
+        <Text style={styles.hnavButtonText}>View Progress</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Settings')}>
+        <Ionicons name="cog-outline" size={24} color="#333" />
+        <Text style={styles.navButtonText}>Settings</Text>
+        </TouchableOpacity>
+    </View>
+
     </View>
   );
 };
@@ -148,6 +167,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+    marginTop: 36
   },
   sessionContainer: {
     padding: 15,
@@ -179,6 +199,35 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: 'center',
     marginBottom: 20,
+  },
+
+  bottomNavBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 18,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  navButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  navButtonText: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 4,
+  },
+  hnavButtonText: {
+    fontSize: 12,
+    color: '#007BFF',
+    marginTop: 4,
   },
 });
 

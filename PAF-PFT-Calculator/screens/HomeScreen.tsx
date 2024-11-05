@@ -1,52 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { scoringRanges } from '../constants/scoringTables';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-// Define scoring ranges based on the table
-const scoringRanges = {
-  pushUps: {
-    male: {
-      '21': { min: 36, max: 80 },
-      '22-26': { min: 35, max: 79 },
-      '27-31': { min: 38, max: 77 },
-      '32-36': { min: 29, max: 74 },
-    },
-    female: {
-      '21': { min: 18, max: 64 },
-      '22-26': { min: 16, max: 62 },
-      '27-31': { min: 14, max: 59 },
-      '32-36': { min: 12, max: 55 },
-    },
-  },
-  sitUps: {
-    male: {
-      '21': { min: 36, max: 80 },
-      '22-26': { min: 35, max: 79 },
-      '27-31': { min: 38, max: 77 },
-      '32-36': { min: 29, max: 74 },
-    },
-    female: {
-      '21': { min: 18, max: 64 },
-      '22-26': { min: 16, max: 62 },
-      '27-31': { min: 14, max: 59 },
-      '32-36': { min: 12, max: 55 },
-    },
-  },
-  run: {
-    male: {
-      '21': { min: 18 * 60 + 43, max: 9 * 60 + 23 }, // Convert times to seconds
-      '22-26': { min: 20 * 60 + 3, max: 10 * 60 + 43 },
-      '27-31': { min: 22 * 60 + 3, max: 12 * 60 + 23 },
-      '32-36': { min: 24 * 60 + 19, max: 14 * 60 + 59 },
-    },
-    female: {
-      '21': { min: 20 * 60 + 19, max: 10 * 60 + 59 },
-      '22-26': { min: 21 * 60 + 39, max: 12 * 60 + 19 },
-      '27-31': { min: 22 * 60 + 59, max: 13 * 60 + 39 },
-      '32-36': { min: 24 * 60 + 19, max: 14 * 60 + 59 },
-    },
-  },
-};
+const getAgeGroup = (age) => {
+    const ageNum = parseInt(age, 10);
+    if (ageNum < 22) return '21';
+    if (ageNum <= 26) return '22-26';
+    if (ageNum <= 31) return '27-31';
+    if (ageNum <= 36) return '32-36';
+    if (ageNum <= 41) return '37-41';
+    if (ageNum <= 46) return '42-46';
+    if (ageNum <= 51) return '47-51';
+    if (ageNum <= 56) return '52-56';
+    // Add more age groups as needed
+    return '57-61'; // Default if age exceeds known groups
+  };
+
+const getRunAgeGroup = (age) => {
+    const ageNum = parseInt(age,10);
+    if (ageNum < 26) return '25 below';
+    if (ageNum <= 30) return '26-30';
+    if (ageNum <= 35) return '31-35';
+    if (ageNum <= 40) return '36-40';
+    if (ageNum <= 45) return '41-45';
+    if (ageNum <= 50) return '46-50';
+    if (ageNum <= 55) return '51-55';
+    return '56-60';
+}
+  
+
+
+const ScoreBar = ({ label, score }) => (
+    <View style={styles.scoreContainer}>
+      <View style={styles.scoreLabelContainer}>
+        <Text style={styles.scoreLabel}>{label}</Text>
+        <Text style={styles.scorePercentage}>{`${score}%`}</Text>
+      </View>
+      <View style={styles.progressBar}>
+        <View style={[
+          styles.progressFill,
+          { width: `${score}%`, backgroundColor: score >= 75 ? '#4CAF50' : '#FF3E3E' } // Green if 75% or above, red otherwise
+        ]} />
+      </View>
+    </View>
+  );
+
 
 const HomeScreen = ({ navigation }) => {
   const [pushUps, setPushUps] = useState(0);
@@ -54,25 +55,45 @@ const HomeScreen = ({ navigation }) => {
   const [runMinutes, setRunMinutes] = useState(0);
   const [runSeconds, setRunSeconds] = useState(0);
   const [score, setScore] = useState<number | null>(null);
+  const [situpScore, setSitupScore] = useState<number | null>(null);
+  const [pushupScore, setPushupScore] = useState<number | null>(null);
+  const [runScore, setRunScore] = useState<number | null>(null);
   
   const [age, setAge] = useState<string>('');
   const [gender, setGender] = useState<string>('');
 
   // Load age and gender from AsyncStorage
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const savedAge = await AsyncStorage.getItem('@paf_pft_age');
-        const savedGender = await AsyncStorage.getItem('@paf_pft_gender');
-        if (savedAge) setAge(savedAge);
-        if (savedGender) setGender(savedGender);
-      } catch (error) {
-        console.error('Failed to load settings:', error);
-      }
-    };
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSettings = async () => {
+        try {
+          const savedAge = await AsyncStorage.getItem('@paf_pft_age');
+          const savedGender = await AsyncStorage.getItem('@paf_pft_gender');
+          if (savedAge) setAge(savedAge);
+          if (savedGender) setGender(savedGender);
+        } catch (error) {
+          console.error('Failed to load settings:', error);
+        }
+      };
+      
+      loadSettings();
+    }, [])
+  );
+  
 
-    loadSettings();
-  }, []);
+  const calculateRunScore = (runTimeInSeconds, ageGroup) => {
+    const ranges = scoringRanges.run[gender][ageGroup];
+    if (!ranges) return 50;  // Default if no ranges exist
+    for (let i = 0; i < ranges.length; i++) {
+        const { min, max, score } = ranges[i];
+        if (runTimeInSeconds >= min && runTimeInSeconds <= max) {
+            return score;
+        }
+    }
+    return 50;  // Fallback if no match is found
+};
+
+  
 
   const calculateScore = () => {
     if (!age || !gender) {
@@ -80,31 +101,47 @@ const HomeScreen = ({ navigation }) => {
       navigation.navigate('Settings'); // Navigate to Settings Screen
       return;
     }
-
+    console.log("Current Age:", age);
+    console.log("Current Gender:", gender);
     const runTimeInSeconds = runMinutes * 60 + runSeconds;
-    const ageGroup = '21'; // You may want to implement actual age group logic
+    const ageGroup = getAgeGroup(age);
+    const runAgeGroup = getRunAgeGroup(age);
 
-    const pushUpScore = calculateEventScore(pushUps, scoringRanges.pushUps[gender][ageGroup]);
-    const sitUpScore = calculateEventScore(sitUps, scoringRanges.sitUps[gender][ageGroup]);
-    const runScore = calculateEventScore(runTimeInSeconds, scoringRanges.run[gender][ageGroup], true);
+    const pushUpScore = getEventScore(pushUps, scoringRanges.pushUps[gender][ageGroup]);
+    const sitUpScore = getEventScore(sitUps, scoringRanges.sitUps[gender][ageGroup]);
+    const runScore = calculateRunScore(runTimeInSeconds, runAgeGroup);
 
-    const totalScore = (pushUpScore + sitUpScore + runScore) / 3;
+    console.log("Pushup table", scoringRanges.pushUps[gender][ageGroup]);
+    console.log("Situp table", scoringRanges.sitUps[gender][ageGroup]);
+    console.log("Run table", scoringRanges.run[gender][runAgeGroup]);
+
+    const totalScore = (pushUpScore +sitUpScore +runScore) / 3;
+    setSitupScore(sitUpScore);
+    setPushupScore(pushUpScore);
+    setRunScore(runScore);
     setScore(totalScore);
   };
 
-  const calculateEventScore = (value: number, range: { min: number; max: number }, isRun: boolean = false): number => {
-    const { min, max } = range;
 
-    if (isRun) {
-      if (value >= min) return 65;
-      if (value <= max) return 100;
-      return 65 + ((min - value) / (min - max)) * 35;
-    } else {
-      if (value <= min) return 65;
-      if (value >= max) return 100;
-      return 65 + ((value - min) / (max - min)) * 35;
+
+  const getEventScore = (value, scoreTable) => {
+    // Check if the value exceeds the highest score defined in the table
+    const maxScore = Math.max(...Object.keys(scoreTable).map(Number));
+    if (value >= maxScore) {
+        return 100; // Return 100% if the value exceeds or meets the maximum score
     }
-  };
+
+    // Check if the value is lower than the minimum defined score
+    const minScore = Math.min(...Object.keys(scoreTable).map(Number));
+    if (value < minScore) {
+        return 0; // Return 0% for values below the minimum defined score
+    }
+
+    // If the value falls within the valid range, return the corresponding score
+    return scoreTable[value] || 0; // Use the value as a key to access the score
+};
+
+
 
   const saveSession = async () => {
     if (score === null) {
@@ -139,7 +176,7 @@ const HomeScreen = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View >
-          <Text style={styles.header}>PAF PFT Calculator</Text>
+          <Text style={styles.header}> PFT Calculator</Text>
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Push-Ups (reps):</Text>
@@ -189,23 +226,39 @@ const HomeScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.button} onPress={calculateScore}>
               <Text style={styles.buttonText}>Calculate Score</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={saveSession}>
-              <Text style={styles.buttonText}>Save Session</Text>
+            <TouchableOpacity style={styles.greyButton} onPress={saveSession}>
+              <Text style={styles.greyButtonText}>Save Session</Text>
             </TouchableOpacity>
           </View>
 
-          {score !== null && (
-            <Text style={styles.result}>Your Total Score: {score.toFixed(2)}%</Text>
+          {score !== null && pushupScore !== null && situpScore !== null && runScore !== null && (
+            <View style={styles.scoreCard}>
+                <ScoreBar label="Push-Up Score" score={pushupScore.toFixed(2)} />
+                <ScoreBar label="Sit-Up Score" score={situpScore.toFixed(2)} />
+                <ScoreBar label="Run Score" score={runScore.toFixed(2)} />
+                <Text style={styles.totalScoreText}>Your Total Score: {score.toFixed(2)}%</Text>
+            </View>
           )}
 
-          <View style={styles.navigationButtons}>
-            <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Progress')}>
-              <Text style={styles.navButtonText}>View Progress</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Settings')}>
-              <Text style={styles.navButtonText}>Settings</Text>
-            </TouchableOpacity>
-          </View>
+          
+
+          
+        </View>
+
+        {/* Bottom Navigation Bar */}
+        <View style={styles.bottomNavBar}>
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Home')}>
+                <Ionicons name="home-outline" size={24} color="#007BFF" />
+                <Text style={styles.hnavButtonText}>Home</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Progress')}>
+                <Ionicons name="bar-chart-outline" size={24} color="#333" />
+                <Text style={styles.navButtonText}>View Progress</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Settings')}>
+                <Ionicons name="cog-outline" size={24} color="#333" />
+                <Text style={styles.navButtonText}>Settings</Text>
+                </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
@@ -217,6 +270,42 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#ffffff', // White background for the whole screen
+  },
+  scoreCard: {
+    marginTop:20
+  },
+  scoreContainer: {
+    marginVertical: 10,
+  },
+  scoreLabelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  scoreLabel: {
+    fontSize: 16,
+    color: '#333',
+  },
+  scorePercentage: {
+    fontSize: 16,
+    color: '#333',
+  },
+  progressBar: {
+    height: 10,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007BFF',
+  },
+  totalScoreText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginTop: 20,
   },
   card: {
     padding: 20,
@@ -232,13 +321,22 @@ const styles = StyleSheet.create({
     elevation: 5, // For Android shadow
     alignItems: 'center', // Center content
   },
-  header: {
-    fontSize: 28,
+  logo: {
+    fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
     color: '#333', // Darker text color
-    marginTop: 36
+    marginTop: 36,
+    fontFamily: 'Inter-Black'
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    marginTop: 36,
+    textAlign: 'center',
+    color: '#333', // Darker text color
   },
   label: {
     fontSize: 16,
@@ -309,9 +407,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    
+
   },
-  navButton: {
+  greyButton: {
     backgroundColor: '#F0F2F5',
     borderRadius: 10,
     padding: 15,
@@ -319,10 +417,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 5,
   },
-  navButtonText: {
+  greyButtonText: {
     color: '#141414',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  
+  bottomNavBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 18,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  navButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  navButtonText: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 4,
+  },
+  hnavButtonText: {
+    fontSize: 12,
+    color: '#007BFF',
+    marginTop: 4,
   },
 });
 
