@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 13.0.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "charles@calapini.com",
+        "ascAppId": "6737824618",
+        "appleTeamId": "HAHPC93MQL"
+      }
+    }
+    
+  }
+}

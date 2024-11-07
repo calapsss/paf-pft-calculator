@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "PAF-PFT-Calculator",
-    "slug": "PAF-PFT-Calculator",
+    "name": "PFT-Calculator",
+    "slug": "PFT-Calculator",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,7 +12,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "buildNumber": "1.0.0",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pipsai.PFTCalculator"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,6 +24,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "41e58de8-3a6b-44ec-a385-442d03163774"
+      }
     }
   }
 }
